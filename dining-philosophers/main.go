@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
 )
 
 type Philosopher struct {
@@ -13,25 +12,35 @@ type Philosopher struct {
 }
 
 func (p *Philosopher) Think() {
-	fmt.Printf("Philosopher %d is thinking for 200ms", p.id)
-	time.Sleep(200 * time.Millisecond)
+	fmt.Printf("Philosopher %d is thinking. \n", p.id)
+	//time.Sleep(200 * time.Millisecond)
 }
 
-func (p *Philosopher) Eat() {
-	p.leftChopstick.Lock()
-	defer p.leftChopstick.Unlock()
-	p.rightChopstick.Lock()
-	defer p.rightChopstick.Unlock()
-	fmt.Printf("Philosopher %d is eating for 200ms", p.id)
-	time.Sleep(200 * time.Millisecond)
+// Eat simulates the eating activity, if start is 'left' the philosopher will lock the left chopstick first and then the right chopstick, 
+// otherwise, if start is right then the reverse order happen. We keep this parameter to control deadlocks for learning purposes.
+// This method is also responsible for putting down the chopsticks (i.e unlocking the mutexes)
+func (p *Philosopher) Eat(start string) {
+	if start == "left" {
+		p.leftChopstick.Lock()
+		defer p.leftChopstick.Unlock()
+		p.rightChopstick.Lock()
+		defer p.rightChopstick.Unlock()
+	}else{
+		p.rightChopstick.Lock()
+		defer p.rightChopstick.Unlock()	
+	}
+	fmt.Printf("Philosopher %d is eating. \n", p.id)
+	//time.Sleep(200 * time.Millisecond)
 }
 
 // Live is just a wrapper method for the eat and think activities for k times
-func (p *Philosopher) Live(k int, wg *sync.WaitGroup){
+// startChopstick is a string passed to the Eat method, read Eat comments for more.
+// wg is a pointer to a Waitgroup for waiting all philo life cycles to end.
+func (p *Philosopher) Live(k int, startChopstick string, wg *sync.WaitGroup){
 	// Decrement the wait group
 	defer wg.Done()
 	for i := 0; i < k; i++{ //  A philosopher life is an endless loop of eating and thinking
-		p.Eat()
+		p.Eat(startChopstick)
 		p.Think()
 	}
 }
@@ -47,6 +56,7 @@ func main() {
 	// Initiate the N philosophers and attribute their left and right chopstick/mutex (pointer to a mutex)
 	philos := make([]Philosopher, numPhilos)
 	for i := 0; i < numPhilos; i++{
+		// This part is commented, it solves the deadlock issue by breaking the symmetry
 		philos[i] = Philosopher{
 			id: i,
 			leftChopstick: &chopSticks[i],
@@ -59,10 +69,18 @@ func main() {
 	numCycles := 10
 	var wg sync.WaitGroup
 	// Now run Live method for each philosopher as a go routine
-	for _,ph := range philos{
+	for id,ph := range philos{
 		wg.Add(1)
-		go ph.Live(numCycles, &wg)
+		// The life of each philosopher is a goroutine that runs concurrently
+		// If we use left as the starting chopstick, we might face a deadlock if all philosopher start eating at same time and lock their left chopstick
+		// We can fix this deadlock situation by breaking the cycle, we only need one philosopher to start with right.
+		if id == 0{
+			go ph.Live(numCycles, "right", &wg)
+		}else{
+			go ph.Live(numCycles, "left", &wg)
+		}
+		
 	}
 	wg.Wait()
-	// This should result in a deadlock, to fix, one philosopher should start with their right chopstick
+	
 }
