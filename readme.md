@@ -14,3 +14,5 @@ Here is a summary of notes and implementations by topic:
 #### Notes:
 
 - [Safety and Liveness properties of concurrent systems](./notes/liveness-safety-concurrency.md).
+- [Deadlocks, Livelocks and Starvation issues](./notes/deadlocks-livelocks-starvation.md)
+- [Mutual Exclusion Algorithms](./notes/mutual-exclusion-algorithms.md)
